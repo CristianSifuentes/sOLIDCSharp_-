@@ -1,31 +1,39 @@
-using System.Collections.ObjectModel;
-
 namespace SingleResponsability
 {
-    public class FakeStorage<T>
+    // SRP step 2:
+    // FakeStorage simulates a persistence mechanism.
+    // It is generic on purpose: it stores items, but it does not understand students,
+    // CSV, console messages, or application workflows.
+    public sealed class FakeStorage<T>
     {
-        private ObservableCollection<T> collection;
+        private readonly List<T> items;
 
         public FakeStorage()
         {
-            collection = new ObservableCollection<T>();
+            items = new List<T>();
         }
 
         public T Add(T item)
         {
-            collection.Add(item);
+            ArgumentNullException.ThrowIfNull(item);
+
+            items.Add(item);
             return item;
         }
 
         public T Remove(T item)
         {
-            collection.Remove(item);
+            ArgumentNullException.ThrowIfNull(item);
+
+            items.Remove(item);
             return item;
         }
 
         public IEnumerable<T> GetAll()
         {
-            return collection;
+            // Returning a copy protects the storage boundary.
+            // Callers can read the data without accidentally mutating our internal list.
+            return items.ToList();
         }
     }
 }
