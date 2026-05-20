@@ -29,6 +29,7 @@ A practical learning repository for SOLID principles in C#.
     - [A classic LSP violation](#a-classic-lsp-violation)
     - [Fixing the design with capabilities](#fixing-the-design-with-capabilities)
     - [Employee example: when inheritance lies](#employee-example-when-inheritance-lies)
+    - [LSP in this repository](#lsp-in-this-repository)
     - [How to detect LSP violations](#how-to-detect-lsp-violations)
     - [LSP best practices in C#](#lsp-best-practices-in-c)
   - [Interface Segregation Principle (ISP)](#interface-segregation-principle-isp)
@@ -475,6 +476,93 @@ public sealed class ContractorEmployee : Employee
 ```
 
 The architecture becomes more honest: all employees can calculate salary, but only overtime-eligible employees calculate overtime.
+
+#### LSP in this repository
+
+The `3-LiskovSubstitution` project demonstrates LSP through an employee payroll model. The original design had two important problems:
+
+- `Employee` contained `ExtraHours`, even though contractors do not use overtime.
+- Salary calculation depended on a boolean flag that told the base class whether the employee was full-time.
+
+That design made substitution fragile. A caller could not simply trust the `Employee` abstraction. It had to know which subtype it was dealing with, which is exactly the kind of hidden type dependency LSP warns us about.
+
+The corrected design keeps the base class small and truthful:
+
+```csharp
+public abstract class Employee
+{
+    protected Employee(string fullname, int hoursWorked)
+    {
+        Fullname = fullname;
+        HoursWorked = hoursWorked;
+    }
+
+    public string Fullname { get; }
+    public int HoursWorked { get; }
+    public abstract string ContractType { get; }
+
+    public abstract decimal CalculateSalary();
+}
+```
+
+The base type now promises only what every employee can honestly provide. Full-time employees and contractors each implement their own salary behavior:
+
+```csharp
+public sealed class EmployeeFullTime : Employee, IOvertimeEligible
+{
+    public override decimal CalculateSalary()
+    {
+        return (50M * HoursWorked) + CalculateOvertimePay();
+    }
+}
+
+public sealed class EmployeeContractor : Employee
+{
+    public override decimal CalculateSalary()
+    {
+        return 40M * HoursWorked;
+    }
+}
+```
+
+Overtime is modeled as a capability instead of a forced base-class member:
+
+```csharp
+public interface IOvertimeEligible
+{
+    int ExtraHours { get; }
+    decimal CalculateOvertimePay();
+}
+```
+
+This distinction matters. Every employee can calculate salary, but only some employees can calculate overtime. The design therefore models behavior precisely instead of forcing every subtype into the same shape.
+
+The payroll workflow becomes the practical substitution test:
+
+```csharp
+foreach (Employee employee in employees)
+{
+    decimal salary = employee.CalculateSalary();
+    Console.WriteLine($"{employee.Fullname}: {salary}");
+}
+```
+
+The loop does not need `is EmployeeFullTime` to calculate salary. It does not pass `true` or `false` into the base class. It trusts the abstraction, and each subtype behaves correctly through that abstraction.
+
+To verify the implementation:
+
+```powershell
+dotnet build '3-LiskovSubstitution/LiskovSubstitution.csproj'
+dotnet run --project '3-LiskovSubstitution/LiskovSubstitution.csproj'
+```
+
+Expected behavior:
+
+- full-time employees include overtime pay,
+- contractors calculate salary without fake overtime state,
+- the payroll report works with `Employee` references without breaking.
+
+This is LSP in practice: subtypes remain interchangeable through the base contract because the base contract is honest, minimal, and behaviorally stable.
 
 #### How to detect LSP violations
 
