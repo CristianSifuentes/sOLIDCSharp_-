@@ -33,6 +33,14 @@ A practical learning repository for SOLID principles in C#.
     - [How to detect LSP violations](#how-to-detect-lsp-violations)
     - [LSP best practices in C#](#lsp-best-practices-in-c)
   - [Interface Segregation Principle (ISP)](#interface-segregation-principle-isp)
+    - [ISP definition in C#](#isp-definition-in-c)
+    - [Why ISP matters](#why-isp-matters)
+    - [The problem with fat interfaces](#the-problem-with-fat-interfaces)
+    - [Applying ISP with focused contracts](#applying-isp-with-focused-contracts)
+    - [ISP and dependency injection](#isp-and-dependency-injection)
+    - [ISP and the Open/Closed Principle](#isp-and-the-openclosed-principle)
+    - [How to detect ISP violations](#how-to-detect-isp-violations)
+    - [ISP best practices in C#](#isp-best-practices-in-c)
   - [Dependency Inversion Principle (DIP)](#dependency-inversion-principle-dip)
 - [Why apply SOLID from the start?](#why-apply-solid-from-the-start)
 - [How SOLID helps in TDD](#how-solid-helps-in-tdd)
@@ -591,6 +599,232 @@ In short, LSP protects the reliability of polymorphism. It asks every subtype to
 ### Interface Segregation Principle (ISP)
 
 Interfaces should be specific and focused. Prefer smaller, purpose-built interfaces over large, general ones so implementers are not forced to support operations they do not need.
+
+#### ISP definition in C#
+
+The Interface Segregation Principle, proposed by Robert C. Martin, states:
+
+> Clients should not be forced to depend upon interfaces that they do not use.
+
+In C#, this means an interface should describe a coherent capability required by a specific client. Instead of designing one large contract that tries to represent every possible operation, ISP encourages many small, role-specific interfaces.
+
+The scientific idea is dependency precision: a class should depend only on the behaviors it actually consumes. Every extra method in an interface is an unnecessary dependency, and unnecessary dependencies become friction when the system evolves.
+
+#### Why ISP matters
+
+Large interfaces look convenient at first, but they create structural coupling. When a class implements a method it does not support, the design is already lying.
+
+ISP helps produce:
+
+- lower coupling: classes depend on smaller contracts,
+- safer maintenance: changing one capability does not ripple through unrelated implementers,
+- better testability: small interfaces are easier to mock and verify,
+- clearer intent: each interface communicates one role,
+- stronger extensibility: new capabilities can be added as new contracts instead of bloating old ones.
+
+ISP also supports long-term architecture because it makes boundaries explicit. A printing component should not be required to know about scanning. A PayPal vendor should not be forced to implement Bitcoin processing. A login service should not inherit annual-report behavior.
+
+#### The problem with fat interfaces
+
+A fat interface groups unrelated responsibilities into one contract:
+
+```csharp
+public interface IMachine
+{
+    void Print(Document document);
+    void Scan(Document document);
+    void Fax(Document document);
+}
+```
+
+This forces simple devices to implement operations they cannot perform:
+
+```csharp
+public sealed class OldPrinter : IMachine
+{
+    public void Print(Document document)
+    {
+        Console.WriteLine("Printing...");
+    }
+
+    public void Scan(Document document)
+    {
+        throw new NotImplementedException("OldPrinter cannot scan.");
+    }
+
+    public void Fax(Document document)
+    {
+        throw new NotImplementedException("OldPrinter cannot fax.");
+    }
+}
+```
+
+The problem is not only the exception. The deeper issue is that `IMachine` makes a false promise: it claims every machine can print, scan, and fax. `OldPrinter` is then forced to violate that promise at runtime.
+
+#### Applying ISP with focused contracts
+
+The correction is to split behavior by capability:
+
+```csharp
+public interface IPrinter
+{
+    void Print(Document document);
+}
+
+public interface IScanner
+{
+    void Scan(Document document);
+}
+
+public interface IFax
+{
+    void Fax(Document document);
+}
+```
+
+Now classes implement only the operations they truly support:
+
+```csharp
+public sealed class SimplePrinter : IPrinter
+{
+    public void Print(Document document)
+    {
+        Console.WriteLine("Simple print job executed.");
+    }
+}
+
+public sealed class MultiFunctionPrinter : IPrinter, IScanner, IFax
+{
+    public void Print(Document document)
+    {
+        Console.WriteLine("Printing...");
+    }
+
+    public void Scan(Document document)
+    {
+        Console.WriteLine("Scanning...");
+    }
+
+    public void Fax(Document document)
+    {
+        Console.WriteLine("Faxing...");
+    }
+}
+```
+
+This design is more honest. A simple printer is not pretending to scan, and a multifunction printer can compose several capabilities without forcing those capabilities onto everyone else.
+
+The same idea applies to business roles:
+
+```csharp
+public interface ILogin
+{
+    void IniciarSesion();
+    void CerrarSesion();
+}
+
+public interface IReporte
+{
+    void GenerarReporteAnual();
+}
+```
+
+A class that only handles authentication depends on `ILogin`. A class that only generates annual reports depends on `IReporte`. The client receives exactly the contract it needs.
+
+#### ISP and dependency injection
+
+ISP becomes especially powerful with dependency injection. A service should request the narrowest abstraction that lets it do its work:
+
+```csharp
+public sealed class DocumentProcessor
+{
+    private readonly IScanner scanner;
+
+    public DocumentProcessor(IScanner scanner)
+    {
+        this.scanner = scanner;
+    }
+
+    public void Process(Document document)
+    {
+        scanner.Scan(document);
+    }
+}
+```
+
+`DocumentProcessor` does not know whether the concrete object can print or fax. It only knows that it can scan. This creates loose coupling and makes tests smaller, because a test double only needs to implement `IScanner`.
+
+#### ISP and the Open/Closed Principle
+
+ISP naturally supports the Open/Closed Principle. When capabilities are separated, new functionality can be introduced by adding a new interface or implementation instead of modifying one large shared contract.
+
+For example, a payment system should avoid this:
+
+```csharp
+public interface IPaymentProcessor
+{
+    void ProcessCreditCard(string cardNumber);
+    void ProcessPayPal(string email);
+    void ProcessBitcoin(string walletAddress);
+}
+```
+
+A vendor that supports only PayPal would be forced to depend on credit card and Bitcoin behavior. A better design segregates the contracts:
+
+```csharp
+public interface ICreditCardProcessor
+{
+    void ProcessCreditCard(string cardNumber);
+}
+
+public interface IPayPalProcessor
+{
+    void ProcessPayPal(string email);
+}
+
+public interface IBitcoinProcessor
+{
+    void ProcessBitcoin(string walletAddress);
+}
+```
+
+Now each provider implements only the payment methods it supports:
+
+```csharp
+public sealed class PayPalVendor : IPayPalProcessor
+{
+    public void ProcessPayPal(string email)
+    {
+        Console.WriteLine($"Processing PayPal payment for {email}");
+    }
+}
+```
+
+The system becomes open to new payment capabilities while keeping existing providers closed to unrelated modifications.
+
+#### How to detect ISP violations
+
+Look for these signals:
+
+- classes implement interface methods by throwing `NotImplementedException`,
+- methods have empty bodies because the capability does not apply,
+- one interface mixes unrelated roles such as login, reporting, persistence, and notification,
+- tests need to mock many methods that the tested class never calls,
+- adding one method to an interface forces many unrelated classes to change,
+- client code receives a dependency with more power than it actually needs.
+
+These are signs that the interface is modeling a category too broadly instead of modeling a precise capability.
+
+#### ISP best practices in C#
+
+- Name interfaces by role or capability, such as `IPrinter`, `IScanner`, `ILogin`, or `IReportGenerator`.
+- Prefer several small interfaces over one general-purpose interface.
+- Let classes implement multiple interfaces when they genuinely support multiple capabilities.
+- Avoid adding methods to an existing interface just because one implementation needs them.
+- Use dependency injection with the smallest useful abstraction.
+- Keep interfaces stable, cohesive, and meaningful to their clients.
+
+In short, ISP protects clients from unnecessary knowledge. It asks every interface to be a precise contract rather than a bucket of possible operations. When applied well, it produces systems that are easier to test, easier to extend, and calmer to maintain.
 
 ### Dependency Inversion Principle (DIP)
 
