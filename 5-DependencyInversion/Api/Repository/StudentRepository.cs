@@ -2,9 +2,19 @@ using System.Collections.ObjectModel;
 
 namespace DependencyInversion
 {
-    public class StudentRepository
+    public interface IStudentRepository
     {
-        private static ObservableCollection<Student> collection;
+        IEnumerable<Student> GetAll();
+        void Add(Student student);
+    }
+
+    // DIP step 2:
+    // StudentRepository is a low-level data component.
+    // The controller does not need to know this concrete class exists; it only needs
+    // an object that satisfies IStudentRepository.
+    public sealed class StudentRepository : IStudentRepository
+    {
+        private static ObservableCollection<Student>? collection;
 
         public StudentRepository()
         {
@@ -13,7 +23,7 @@ namespace DependencyInversion
 
         private void InitData()
         {
-            if (collection == null) 
+            if (collection is null)
             {
                 collection = new();
                 collection.Add(new Student(1, "Pepito Pérez", new List<double>() { 3, 4.5 }));
@@ -24,12 +34,15 @@ namespace DependencyInversion
 
         public IEnumerable<Student> GetAll()
         {
-            return collection;
+            return collection ?? Enumerable.Empty<Student>();
         }
 
         public void Add(Student student)
         {
-            collection.Add(student);
+            ArgumentNullException.ThrowIfNull(student);
+
+            InitData();
+            collection!.Add(student);
         }
     }
 }
