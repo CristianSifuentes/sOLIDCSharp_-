@@ -1,34 +1,13 @@
 namespace InterfaceSegregation
 {
-    public class Tester : IActivities
+    // ISP step 4:
+    // Tester receives a testing contract instead of the whole activities catalog.
+    // The role is now precise: it can test without pretending to develop.
+    public sealed class Tester : ITestActivities
     {
-        public Tester()
+        public void Test()
         {
-        }
-
-        public void Plan() 
-        {
-            throw new ArgumentException();
-        }
-
-        public void Comunicate() 
-        {
-            throw new ArgumentException();
-        }
-
-        public void Design() 
-        {
-            throw new ArgumentException();
-        }
-
-        public void Develop() 
-        {
-            Console.WriteLine("I'm developing the functionalities required");
-        }
-
-        public void Test() 
-        {
-            throw new ArgumentException();
+            Console.WriteLine("Tester: I validate behavior, detect defects, and protect quality.");
         }
     }
 }

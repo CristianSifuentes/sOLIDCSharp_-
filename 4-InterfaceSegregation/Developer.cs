@@ -1,34 +1,13 @@
 namespace InterfaceSegregation
 {
-    public class Developer : IActivities
+    // ISP step 3:
+    // Developer implements only the capabilities it actually owns.
+    // There are no fake Test, Plan, or Design methods throwing exceptions.
+    public sealed class Developer : IDevelopActivities
     {
-        public Developer()
+        public void Develop()
         {
-        }
-
-        public void Plan() 
-        {
-            throw new ArgumentException();
-        }
-
-        public void Comunicate() 
-        {
-            throw new ArgumentException();
-        }
-
-        public void Design() 
-        {
-            throw new ArgumentException();
-        }
-
-        public void Develop() 
-        {
-            Console.WriteLine("I'm developing the functionalities required");
-        }
-
-        public void Test() 
-        {
-            throw new ArgumentException();
+            Console.WriteLine("Developer: I build the requested functionality.");
         }
     }
 }
