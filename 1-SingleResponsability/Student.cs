@@ -1,22 +1,27 @@
 namespace SingleResponsability
 {
-    public class Student
+    // SRP step 1:
+    // Student represents the business concept "student".
+    // It does not know where it is stored, how it is exported, or which file format is used.
+    // Its only reason to change should be a change in the student data model itself.
+    public sealed class Student
     {
-        public int Id { get; set; }
-        public string Fullname { get; set; }
-        public List<double> Grades { get; set; }
+        public int Id { get; }
+        public string Fullname { get; }
+        public IReadOnlyList<double> Grades { get; }
 
-        public Student()
+        public Student(int id, string fullname, IEnumerable<double> grades)
         {
-            this.Fullname = string.Empty;
-            this.Grades = new List<double>();
-        }
+            if (string.IsNullOrWhiteSpace(fullname))
+            {
+                throw new ArgumentException("A student must have a fullname.", nameof(fullname));
+            }
 
-        public Student(int id, string fullname, List<double> grades)
-        {
-            this.Id = id;
-            this.Fullname = fullname;
-            this.Grades = grades;
+            ArgumentNullException.ThrowIfNull(grades);
+
+            Id = id;
+            Fullname = fullname;
+            Grades = grades.ToList().AsReadOnly();
         }
     }
 }
