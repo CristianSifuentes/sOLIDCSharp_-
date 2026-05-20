@@ -42,6 +42,15 @@ A practical learning repository for SOLID principles in C#.
     - [How to detect ISP violations](#how-to-detect-isp-violations)
     - [ISP best practices in C#](#isp-best-practices-in-c)
   - [Dependency Inversion Principle (DIP)](#dependency-inversion-principle-dip)
+    - [DIP definition in C#](#dip-definition-in-c)
+    - [High-level and low-level components](#high-level-and-low-level-components)
+    - [Why DIP matters](#why-dip-matters)
+    - [A direct dependency problem](#a-direct-dependency-problem)
+    - [Applying DIP with abstractions](#applying-dip-with-abstractions)
+    - [Types of dependency injection](#types-of-dependency-injection)
+    - [DIP and TDD](#dip-and-tdd)
+    - [DIP in a student API](#dip-in-a-student-api)
+    - [DIP best practices in C#](#dip-best-practices-in-c)
 - [Why apply SOLID from the start?](#why-apply-solid-from-the-start)
 - [How SOLID helps in TDD](#how-solid-helps-in-tdd)
 - [SOLID and object-oriented programming](#solid-and-object-oriented-programming)
@@ -829,6 +838,274 @@ In short, ISP protects clients from unnecessary knowledge. It asks every interfa
 ### Dependency Inversion Principle (DIP)
 
 High-level modules should not depend on low-level modules. Both should depend on abstractions. This often leads to dependency injection and more loosely coupled, flexible architecture.
+
+#### DIP definition in C#
+
+The Dependency Inversion Principle states:
+
+> High-level components should not depend on low-level components. Both should depend on abstractions.
+
+In C#, this usually means that business logic should depend on interfaces or abstract classes instead of concrete infrastructure classes. A service that coordinates a use case should not be tightly coupled to a specific database repository, file logger, email sender, HTTP client, or storage provider.
+
+DIP is called "inversion" because it reverses the usual dependency direction. Instead of high-level policy code depending directly on low-level implementation details, both sides depend on a stable abstraction.
+
+#### High-level and low-level components
+
+A high-level component contains business rules or orchestration logic. It decides what the application should do.
+
+Examples:
+
+- a student API endpoint,
+- a payroll service,
+- an order checkout service,
+- a report generation workflow.
+
+A low-level component contains technical details used to execute that behavior.
+
+Examples:
+
+- a SQL repository,
+- a file-based logger,
+- an email provider,
+- an external payment gateway,
+- a concrete storage implementation.
+
+The high-level component should not know the concrete class names of these low-level details. It should know only the contract it needs.
+
+#### Why DIP matters
+
+DIP reduces the cost of change. Low-level details change frequently: a logger might move from console to file, a repository might move from memory to SQL, or an API client might be replaced by another provider.
+
+When high-level logic depends directly on those details, every infrastructure change risks damaging business behavior.
+
+DIP helps achieve:
+
+- loose coupling: components know less about each other,
+- better maintainability: implementation changes affect fewer files,
+- stronger testability: dependencies can be replaced with test doubles,
+- flexible architecture: new implementations can be added behind existing contracts,
+- cleaner boundaries: business logic is separated from infrastructure details.
+
+#### A direct dependency problem
+
+Consider a service that calculates the area of a circle by depending directly on one concrete circle implementation:
+
+```csharp
+public sealed class ConcreteCircle
+{
+    private readonly double radius;
+
+    public ConcreteCircle(double radius)
+    {
+        this.radius = radius;
+    }
+
+    public double CalculateArea()
+    {
+        return Math.Round(Math.PI * Math.Pow(radius, 2));
+    }
+}
+
+public sealed class CircleService
+{
+    private readonly ConcreteCircle circle;
+
+    public CircleService(ConcreteCircle circle)
+    {
+        this.circle = circle;
+    }
+
+    public double CalculateArea()
+    {
+        return circle.CalculateArea();
+    }
+}
+```
+
+The problem is that `CircleService` depends directly on `ConcreteCircle`. If the application later needs a different shape, a different circle implementation, or a test double, the service is harder to reuse.
+
+The dependency direction is too rigid: high-level orchestration knows low-level detail.
+
+#### Applying DIP with abstractions
+
+The correction is to introduce an abstraction that describes the behavior the high-level component needs:
+
+```csharp
+public interface IAreaCalculable
+{
+    double CalculateArea();
+}
+```
+
+The low-level implementation depends on that abstraction:
+
+```csharp
+public sealed class ConcreteCircle : IAreaCalculable
+{
+    private readonly double radius;
+
+    public ConcreteCircle(double radius)
+    {
+        this.radius = radius;
+    }
+
+    public double CalculateArea()
+    {
+        return Math.Round(Math.PI * Math.Pow(radius, 2));
+    }
+}
+```
+
+The high-level service also depends on the abstraction:
+
+```csharp
+public sealed class AreaService
+{
+    private readonly IAreaCalculable shape;
+
+    public AreaService(IAreaCalculable shape)
+    {
+        this.shape = shape;
+    }
+
+    public double CalculateArea()
+    {
+        return shape.CalculateArea();
+    }
+}
+```
+
+Usage:
+
+```csharp
+IAreaCalculable circle = new ConcreteCircle(5);
+AreaService service = new(circle);
+
+Console.WriteLine(service.CalculateArea());
+```
+
+Now `AreaService` is protected from concrete implementation details. A new shape can be introduced as long as it satisfies the `IAreaCalculable` contract.
+
+#### Types of dependency injection
+
+Dependency Injection is one common technique for applying DIP. It supplies dependencies from the outside instead of letting a class create them internally.
+
+Common forms:
+
+- constructor injection: dependencies are required at object creation time,
+- property injection: dependencies are assigned through public properties,
+- method parameter injection: dependencies are supplied only to the method that needs them.
+
+Constructor injection is usually the preferred default in C# because it makes required dependencies explicit and prevents partially constructed objects.
+
+Example:
+
+```csharp
+public sealed class StudentApi
+{
+    private readonly IStudentRepository studentRepository;
+    private readonly ILogger logger;
+
+    public StudentApi(IStudentRepository studentRepository, ILogger logger)
+    {
+        this.studentRepository = studentRepository;
+        this.logger = logger;
+    }
+}
+```
+
+This constructor tells the truth: the API needs a repository and a logger to do its work.
+
+#### DIP and TDD
+
+DIP is essential for effective Test-Driven Development. Without abstractions, unit tests often become trapped behind real databases, real files, real network calls, or real logging infrastructure.
+
+When a class depends on interfaces, tests can provide controlled substitutes:
+
+```csharp
+public sealed class InMemoryStudentRepository : IStudentRepository
+{
+    public IEnumerable<Student> GetAll()
+    {
+        return new[]
+        {
+            new Student(1, "Test Student")
+        };
+    }
+}
+```
+
+The test can verify business behavior without requiring the production repository. That is the practical power of DIP: it makes important logic independently testable.
+
+#### DIP in a student API
+
+Imagine a student API that returns a list of students and records each API call in a log. A tightly coupled version might create concrete dependencies inside the API:
+
+```csharp
+public sealed class StudentApi
+{
+    private readonly StudentRepository repository = new();
+    private readonly FileLogger logger = new();
+
+    public IEnumerable<Student> GetStudents()
+    {
+        logger.Log("Students requested.");
+        return repository.GetAll();
+    }
+}
+```
+
+This design works at first, but it is rigid. Changing the repository or logger requires editing the API itself.
+
+A DIP-compliant design depends on abstractions:
+
+```csharp
+public interface IStudentRepository
+{
+    IEnumerable<Student> GetAll();
+}
+
+public interface IApplicationLogger
+{
+    void Log(string message);
+}
+```
+
+The API receives those abstractions:
+
+```csharp
+public sealed class StudentApi
+{
+    private readonly IStudentRepository repository;
+    private readonly IApplicationLogger logger;
+
+    public StudentApi(IStudentRepository repository, IApplicationLogger logger)
+    {
+        this.repository = repository;
+        this.logger = logger;
+    }
+
+    public IEnumerable<Student> GetStudents()
+    {
+        logger.Log("Students requested.");
+        return repository.GetAll();
+    }
+}
+```
+
+Now the API is stable. The repository can become SQL, in-memory, file-based, or external-service based. The logger can write to console, file, database, telemetry, or a test spy. The high-level API logic remains unchanged.
+
+#### DIP best practices in C#
+
+- Depend on interfaces for infrastructure and volatile details.
+- Prefer constructor injection for required dependencies.
+- Keep abstractions small and meaningful to the client.
+- Avoid creating concrete dependencies inside high-level services.
+- Use dependency injection containers only after the design boundaries are clear.
+- Do not abstract everything prematurely; abstract the parts that are likely to vary or are expensive to test directly.
+- Combine DIP with SRP, OCP, and ISP for cleaner service boundaries.
+
+In short, DIP protects high-level policy from low-level volatility. It makes systems easier to test, easier to extend, and safer to change because business logic depends on stable contracts rather than fragile implementation details.
 
 ## Why apply SOLID from the start?
 
