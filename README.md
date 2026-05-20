@@ -8,7 +8,20 @@ A practical learning repository for SOLID principles in C#.
 - [What are SOLID principles?](#what-are-solid-principles)
 - [What does each letter in SOLID mean?](#what-does-each-letter-in-solid-mean)
   - [Single Responsibility Principle (SRP)](#single-responsibility-principle-srp)
+    - [SRP definition in C#](#srp-definition-in-c)
+    - [Why SRP matters](#why-srp-matters)
+    - [Applying SRP in C#](#applying-srp-in-c)
+    - [System components under SRP](#system-components-under-srp)
+    - [Practical example: user confirmation workflow](#practical-example-user-confirmation-workflow)
+    - [StudentRepository case study](#studentrepository-case-study)
   - [Open/Closed Principle (OCP)](#openclosed-principle-ocp)
+    - [OCP definition in C#](#ocp-definition-in-c)
+    - [Why OCP matters](#why-ocp-matters)
+    - [A violation of OCP](#a-violation-of-ocp)
+    - [Applying OCP with abstraction and polymorphism](#applying-ocp-with-abstraction-and-polymorphism)
+    - [OCP in this repository](#ocp-in-this-repository)
+    - [Techniques to implement OCP in C#](#techniques-to-implement-ocp-in-c)
+    - [Scientific design heuristic](#scientific-design-heuristic)
   - [Liskov Substitution Principle (LSP)](#liskov-substitution-principle-lsp)
   - [Interface Segregation Principle (ISP)](#interface-segregation-principle-isp)
   - [Dependency Inversion Principle (DIP)](#dependency-inversion-principle-dip)
@@ -88,6 +101,162 @@ In short, SRP is not a rule of thumb; it is a scientific approach to software st
 ### Open/Closed Principle (OCP)
 
 Software should be open for extension but closed for modification. New behavior should be added by extending existing code, not by modifying the code that already works.
+
+#### OCP definition in C#
+
+The Open/Closed Principle, attributed to Bertrand Meyer and later popularized through the SOLID principles by Robert C. Martin, states that software entities such as classes, modules, and functions should be:
+
+- open for extension: new behavior can be added when requirements evolve,
+- closed for modification: existing, tested behavior should remain stable and untouched.
+
+In practical C# terms, OCP means designing around abstractions such as interfaces, abstract classes, polymorphism, and composition. The goal is not to freeze the system forever, but to protect proven code from unnecessary edits when new variants, rules, or behaviors appear.
+
+#### Why OCP matters
+
+Real software evolves continuously. New report formats, payment methods, notification channels, discount rules, export types, and validation strategies appear over time. If every new requirement forces developers to reopen and modify stable classes, the risk of regression increases.
+
+OCP helps reduce that risk by encouraging a design where new features are introduced through new code that plugs into existing contracts.
+
+This leads to:
+
+- better modularity: each behavior can live in its own implementation,
+- safer maintenance: stable code is not repeatedly edited for every new case,
+- stronger testability: each extension can be tested independently,
+- improved scalability: the system can grow by adding components instead of expanding conditional logic,
+- clearer architecture: abstractions reveal the variation points of the system.
+
+#### A violation of OCP
+
+Consider a report generator that decides what to do by checking a string value:
+
+```csharp
+public class ReportGenerator
+{
+    public string GenerateReport(string reportType)
+    {
+        if (reportType == "PDF")
+        {
+            return "PDF Report Generated";
+        }
+
+        if (reportType == "Excel")
+        {
+            return "Excel Report Generated";
+        }
+
+        return "Invalid Report Type";
+    }
+}
+```
+
+The problem is not the `if` statement by itself. The deeper design issue is that every new report type requires changing `ReportGenerator`. If the application later needs Word, CSV, HTML, or JSON reports, the same class must keep growing.
+
+That means `ReportGenerator` is open for modification, which is the opposite of what OCP asks us to protect.
+
+#### Applying OCP with abstraction and polymorphism
+
+A better design defines a contract for report generation and lets each report type implement that contract.
+
+```csharp
+public interface IReport
+{
+    string Generate();
+}
+```
+
+Each report becomes an independent extension:
+
+```csharp
+public sealed class PdfReport : IReport
+{
+    public string Generate()
+    {
+        return "PDF Report Generated";
+    }
+}
+
+public sealed class ExcelReport : IReport
+{
+    public string Generate()
+    {
+        return "Excel Report Generated";
+    }
+}
+```
+
+The generator now depends on the abstraction, not on concrete report types:
+
+```csharp
+public sealed class ReportGenerator
+{
+    public string GenerateReport(IReport report)
+    {
+        return report.Generate();
+    }
+}
+```
+
+Usage:
+
+```csharp
+ReportGenerator generator = new();
+
+Console.WriteLine(generator.GenerateReport(new PdfReport()));
+Console.WriteLine(generator.GenerateReport(new ExcelReport()));
+```
+
+If a new `WordReport` is required, the system grows by adding a new class:
+
+```csharp
+public sealed class WordReport : IReport
+{
+    public string Generate()
+    {
+        return "Word Report Generated";
+    }
+}
+```
+
+No change is required in `ReportGenerator`. That is the essence of OCP: the behavior expands, while the stable orchestration remains closed to modification.
+
+#### OCP in this repository
+
+The SRP refactor in `1-SingleResponsability` prepares the ground for OCP. For example, `StudentExporter` does not know whether students are formatted as CSV, JSON, XML, or plain text. It depends on the `IStudentReportFormatter` abstraction:
+
+```csharp
+public interface IStudentReportFormatter
+{
+    string Format(IEnumerable<Student> students);
+}
+```
+
+Today the project includes `StudentCsvFormatter`. Tomorrow, a new formatter could be added:
+
+```csharp
+public sealed class StudentJsonFormatter : IStudentReportFormatter
+{
+    public string Format(IEnumerable<Student> students)
+    {
+        return JsonSerializer.Serialize(students);
+    }
+}
+```
+
+The important architectural result is that `StudentExporter` would not need to be rewritten. The system is open to a new export format, but the existing export workflow stays closed to modification.
+
+#### Techniques to implement OCP in C#
+
+- Interfaces and abstract classes: define contracts that new implementations can satisfy.
+- Strategy pattern: encapsulate interchangeable algorithms or behaviors.
+- Decorator pattern: add behavior to an object without modifying its class.
+- Dependency injection: provide dependencies from the outside so high-level code depends on abstractions.
+- Composition over inheritance: build behavior by combining focused components.
+
+#### Scientific design heuristic
+
+Use OCP when variation is expected. If a behavior is likely to have multiple versions, model it behind an abstraction. If a behavior is stable and unlikely to change, avoid premature abstraction.
+
+The professional skill is not adding interfaces everywhere. The skill is identifying the axis of change: the part of the system that is most likely to evolve. OCP is strongest when it protects stable code while giving unstable requirements a clean extension point.
 
 ### Liskov Substitution Principle (LSP)
 

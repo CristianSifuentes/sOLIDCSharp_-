@@ -1,14 +1,22 @@
 namespace OpenClose
 {
-    public class EmployeeFullTime
+    // OCP step 2:
+    // A full-time employee is an extension of the Employee abstraction.
+    // Its salary rule lives here, where the domain knowledge belongs.
+    public sealed class EmployeeFullTime : Employee
     {
-        public string Fullname { get; set; }
-        public int HoursWorked { get; set; }
+        private const decimal HourValue = 30000M;
 
         public EmployeeFullTime(string fullname, int hoursWorked)
+            : base(fullname, hoursWorked)
         {
-            Fullname = fullname;
-            HoursWorked = hoursWorked;
-        }  
+        }
+
+        public override string ContractType => "Full time";
+
+        public override decimal CalculateSalary()
+        {
+            return HourValue * HoursWorked;
+        }
     }
 }
