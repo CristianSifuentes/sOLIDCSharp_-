@@ -33,7 +33,57 @@ SOLID is a mnemonic for five principles that guide good design in object-oriente
 
 ### Single Responsibility Principle (SRP)
 
-Each class or module should have a single reason to change. Assigning one clear responsibility per component reduces complexity and improves maintainability.
+The Single Responsibility Principle states that every class, module, or service should have only one reason to change. In a well-designed C# system, SRP is a cornerstone of cohesion and modularity.
+
+#### SRP definition in C#
+
+- A class should represent a single domain concept or model.
+- A method should perform one clear operation and be named to express that action.
+- A module should have one focus, and a library should provide one family of related capabilities.
+
+#### Why SRP matters
+
+- Improves modularity: smaller, self-contained components are easier to reason about.
+- Makes maintenance safer: a targeted change affects a narrow area of the codebase.
+- Reduces coupling: components depend on fewer concerns and clearer abstractions.
+- Enhances testability: single-purpose units are simpler to verify with focused tests.
+
+#### Applying SRP in C#
+
+- Identify distinct responsibilities and assign them to separate types.
+- Group related behavior in classes or services that share the same role.
+- Use interfaces to express abstractions and keep implementation details hidden.
+- Avoid cyclic or mutual dependencies between classes that represent different concerns.
+
+#### System components under SRP
+
+SRP applies beyond classes and methods:
+
+- Modules should implement a single function or responsibility.
+- Libraries should expose a cohesive set of features, not a mixed bag of unrelated concerns.
+- In microservice architectures, each service should own one domain process or capability.
+
+#### Practical example: user confirmation workflow
+
+Consider a user story where after a purchase is confirmed, the system must:
+
+- show a confirmation message and save the event,
+- provide a receipt download,
+- send a confirmation email.
+
+A monolithic class that handles all three responsibilities violates SRP. Instead, separate these into distinct components:
+
+- a confirmation handler,
+- an invoice/download service,
+- an email notification service.
+
+Each component remains focused, easier to extend, and less prone to regression.
+
+#### StudentRepository case study
+
+A `StudentRepository` example is a strong candidate for SRP analysis. If it combines data access, validation, and notification, it should be refactored so each responsibility lives in a dedicated class. This is an ideal exercise for identifying SRP violations and evolving a design toward cleaner, single-purpose services.
+
+In short, SRP is not a rule of thumb; it is a scientific approach to software structure. Applying it consistently helps produce C# designs that are maintainable, extensible, and resilient to future change.
 
 ### Open/Closed Principle (OCP)
 
