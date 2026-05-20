@@ -23,6 +23,14 @@ A practical learning repository for SOLID principles in C#.
     - [Techniques to implement OCP in C#](#techniques-to-implement-ocp-in-c)
     - [Scientific design heuristic](#scientific-design-heuristic)
   - [Liskov Substitution Principle (LSP)](#liskov-substitution-principle-lsp)
+    - [LSP definition in C#](#lsp-definition-in-c)
+    - [Why LSP matters](#why-lsp-matters)
+    - [The type and subtype contract](#the-type-and-subtype-contract)
+    - [A classic LSP violation](#a-classic-lsp-violation)
+    - [Fixing the design with capabilities](#fixing-the-design-with-capabilities)
+    - [Employee example: when inheritance lies](#employee-example-when-inheritance-lies)
+    - [How to detect LSP violations](#how-to-detect-lsp-violations)
+    - [LSP best practices in C#](#lsp-best-practices-in-c)
   - [Interface Segregation Principle (ISP)](#interface-segregation-principle-isp)
   - [Dependency Inversion Principle (DIP)](#dependency-inversion-principle-dip)
 - [Why apply SOLID from the start?](#why-apply-solid-from-the-start)
@@ -261,6 +269,236 @@ The professional skill is not adding interfaces everywhere. The skill is identif
 ### Liskov Substitution Principle (LSP)
 
 Derived types must be substitutable for their base types without breaking program behavior. This ensures that subclasses behave consistently when used through a common abstraction.
+
+#### LSP definition in C#
+
+The Liskov Substitution Principle was introduced by Barbara Liskov and later incorporated into SOLID by Robert C. Martin. Its central idea is precise:
+
+> Objects of a base type should be replaceable by objects of a subtype without changing the correctness of the program.
+
+In simpler C# terms: if code works with an `Employee`, `Shape`, `Stream`, or any other base abstraction, it should continue to work correctly when it receives any valid subtype of that abstraction.
+
+LSP is not only about inheritance compiling successfully. It is about behavioral compatibility. A subtype must honor the promises made by its base type.
+
+#### Why LSP matters
+
+Inheritance creates a scientific contract between a type and its subtypes. When that contract is honest, polymorphism becomes powerful. When that contract is false, the system becomes fragile.
+
+Violating LSP can lead to:
+
+- unexpected behavior in polymorphic code,
+- runtime errors hidden behind base-class references,
+- conditionals that check concrete types with `is` or `as`,
+- tests that pass for the base class but fail for derived classes,
+- hierarchies that become harder to extend safely.
+
+Respecting LSP makes code more predictable, reusable, testable, and easier to evolve.
+
+#### The type and subtype contract
+
+For a subtype to be substitutable, the following must remain true:
+
+- The subtype includes the meaningful properties and behaviors of the base type.
+- The inherited members make sense for the subtype.
+- The subtype does not weaken the expectations established by the base type.
+- Client code can use the subtype through the base abstraction without special checks.
+
+The key question is not only "is this subtype related by name?" The stronger question is "can this subtype behave correctly everywhere the base type is expected?"
+
+#### A classic LSP violation
+
+The rectangle and square example is one of the clearest ways to understand the problem.
+
+```csharp
+public class Rectangle
+{
+    public virtual int Width { get; set; }
+    public virtual int Height { get; set; }
+
+    public int GetArea()
+    {
+        return Width * Height;
+    }
+}
+```
+
+At first glance, making `Square` inherit from `Rectangle` seems natural:
+
+```csharp
+public class Square : Rectangle
+{
+    public override int Width
+    {
+        set
+        {
+            base.Width = value;
+            base.Height = value;
+        }
+    }
+
+    public override int Height
+    {
+        set
+        {
+            base.Height = value;
+            base.Width = value;
+        }
+    }
+}
+```
+
+But the subtype changes the behavior expected from the base type:
+
+```csharp
+void PrintArea(Rectangle rectangle)
+{
+    rectangle.Width = 5;
+    rectangle.Height = 10;
+
+    Console.WriteLine(rectangle.GetArea()); // Expected: 50
+}
+
+PrintArea(new Square()); // The behavior is no longer correct for the caller.
+```
+
+The issue is not that a square and a rectangle are unrelated in mathematics. The issue is that this software model gives `Rectangle` two independently mutable dimensions, while `Square` cannot honestly support that contract.
+
+#### Fixing the design with capabilities
+
+When behavior differs, composition and interfaces often model the domain more accurately than inheritance.
+
+```csharp
+public interface IShape
+{
+    int GetArea();
+}
+
+public sealed class Rectangle : IShape
+{
+    public int Width { get; set; }
+    public int Height { get; set; }
+
+    public int GetArea()
+    {
+        return Width * Height;
+    }
+}
+
+public sealed class Square : IShape
+{
+    public int Side { get; set; }
+
+    public int GetArea()
+    {
+        return Side * Side;
+    }
+}
+```
+
+Now the shared abstraction is not "has width and height." The shared abstraction is "can calculate area."
+
+```csharp
+void PrintArea(IShape shape)
+{
+    Console.WriteLine(shape.GetArea());
+}
+```
+
+This design is LSP-compliant because every `IShape` can be substituted safely wherever area calculation is required.
+
+#### Employee example: when inheritance lies
+
+Consider an employee hierarchy with full-time employees and contractors. A full-time employee may have overtime compensation, while a contractor may not.
+
+An LSP violation appears if the base `Employee` class contains a method such as `CalculateOvertime()` and every subtype is forced to inherit it. A `ContractorEmployee` would then inherit behavior that does not belong to it.
+
+That design usually produces one of these symptoms:
+
+```csharp
+public override decimal CalculateOvertime()
+{
+    throw new NotImplementedException();
+}
+```
+
+or:
+
+```csharp
+if (employee is ContractorEmployee)
+{
+    // Avoid overtime logic.
+}
+```
+
+Both are warning signs. The base type promised a capability that not every subtype can honor.
+
+A better design keeps shared employee data in the base type and moves special capabilities into more precise abstractions:
+
+```csharp
+public abstract class Employee
+{
+    public string FullName { get; init; } = string.Empty;
+    public int HoursWorked { get; init; }
+
+    public abstract decimal CalculateSalary();
+}
+
+public interface IOvertimeEligible
+{
+    decimal CalculateOvertime();
+}
+```
+
+Then only the employees that truly support overtime implement the overtime capability:
+
+```csharp
+public sealed class FullTimeEmployee : Employee, IOvertimeEligible
+{
+    public override decimal CalculateSalary()
+    {
+        return HoursWorked * 50;
+    }
+
+    public decimal CalculateOvertime()
+    {
+        return Math.Max(0, HoursWorked - 160) * 75;
+    }
+}
+
+public sealed class ContractorEmployee : Employee
+{
+    public override decimal CalculateSalary()
+    {
+        return HoursWorked * 40;
+    }
+}
+```
+
+The architecture becomes more honest: all employees can calculate salary, but only overtime-eligible employees calculate overtime.
+
+#### How to detect LSP violations
+
+Look for these signals in C# code:
+
+- A subtype overrides a method just to throw `NotImplementedException`.
+- A subtype returns fake values because the inherited member does not apply.
+- Client code uses `is`, `as`, or `switch` to treat subtypes as exceptions.
+- A base class exposes behavior that only some derived classes can support.
+- Tests written for the base type fail when a derived type is substituted.
+- Derived classes weaken validation rules, skip required behavior, or change expected side effects.
+
+These signals usually mean the hierarchy is modeling taxonomy instead of behavior.
+
+#### LSP best practices in C#
+
+- Prefer behavioral abstractions over broad inheritance trees.
+- Use interfaces to model capabilities such as `IShape`, `IOvertimeEligible`, or `IDiscountPolicy`.
+- Keep base classes small and semantically honest.
+- Avoid forcing subtypes to inherit members they cannot support.
+- Favor composition when two concepts share data but not behavior.
+- Design derived classes so they strengthen the model without surprising the caller.
+
+In short, LSP protects the reliability of polymorphism. It asks every subtype to be a truthful participant in the contract established by its base type. When applied well, it transforms inheritance from a risky shortcut into a disciplined design tool.
 
 ### Interface Segregation Principle (ISP)
 

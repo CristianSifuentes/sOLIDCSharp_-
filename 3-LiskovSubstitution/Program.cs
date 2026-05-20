@@ -1,16 +1,14 @@
-﻿using Liskov;
+using Liskov;
 
-CalculateSalaryMonthly(new List<Employee>() {
-    new EmployeeFullTime("Pepito Pérez", 160, 10),
-    new EmployeeContractor("Manuel Lopera", 180, 0)
-});
-
-void CalculateSalaryMonthly(List<Employee> employees) 
+// LSP step 7:
+// Program composes the demo with different concrete employees.
+// The payroll workflow below receives only Employee references, proving that subtypes
+// can be substituted without special flags, casts, or type-check conditionals.
+List<Employee> employees = new()
 {
-    foreach (var item in employees)
-    {
-        decimal salary = item.CalculateSalary((item is EmployeeFullTime));
-        Console.WriteLine($"The {item.Fullname}'s salary is {salary}");
-        
-    }
-}
+    new EmployeeFullTime("Pepito Pérez", 160, 10),
+    new EmployeeContractor("Manuel Lopera", 180)
+};
+
+PayrollReportPrinter printer = new();
+printer.PrintMonthlyPayroll(employees);

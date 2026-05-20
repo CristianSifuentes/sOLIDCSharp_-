@@ -1,9 +1,23 @@
 namespace Liskov
 {
-    public class EmployeeContractor : Employee
+    // LSP step 5:
+    // A contractor is an Employee, but not an overtime-eligible employee.
+    // The class does not inherit fake overtime state and does not throw NotImplementedException.
+    // That honesty is what makes substitution reliable.
+    public sealed class EmployeeContractor : Employee
     {
-        public EmployeeContractor(string fullname, int hoursWorked, int extrahours) : base(fullname, hoursWorked, extrahours)
+        private const decimal HourValue = 40M;
+
+        public EmployeeContractor(string fullname, int hoursWorked)
+            : base(fullname, hoursWorked)
         {
+        }
+
+        public override string ContractType => "Contractor";
+
+        public override decimal CalculateSalary()
+        {
+            return HourValue * HoursWorked;
         }
     }
 }
